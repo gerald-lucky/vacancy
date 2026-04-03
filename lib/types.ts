@@ -92,15 +92,20 @@ export interface ParkCardData {
 }
 
 // Claude parsing output
-export interface ClaudeUnit {
+// The Excel file is a vacancy-only report — only vacant units are listed.
+// Total unit counts come from the park section header.
+export interface ClaudeVacantUnit {
   lot_number: string;
   unit_type: UnitType;
-  status: UnitStatus;
+  days_vacant: number;
+  rent_amount: number;
 }
 
 export interface ClaudePark {
   park_name: string;
-  units: ClaudeUnit[];
+  total_units: number;
+  vacant_count: number;
+  vacant_units: ClaudeVacantUnit[];
 }
 
 export interface ClaudeParseResult {
