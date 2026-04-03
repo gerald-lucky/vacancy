@@ -1,0 +1,22 @@
+insert into parks (name, slug) values
+  ('Chef One Mobile Home Park, LLC',           'chef-one'),
+  ('Country Estates Mobile Home Park LLC',     'country-estates'),
+  ('Glen Echo Mobile Home Park, LLC',          'glen-echo'),
+  ('Lafayette Pinhook Mobile Home Park, LLC',  'lafayette-pinhook'),
+  ('Lucky Acadian Mobile Home Park LLC',       'lucky-acadian'),
+  ('Lucky Oak Mobile Home Park, LLC',          'lucky-oak'),
+  ('Lucky Pecan Mobile Home Park, LLC',        'lucky-pecan'),
+  ('Malapart Oaks Mobile Home Park, LLC',      'malapart-oaks'),
+  ('Messer Community',                         'messer-community'),
+  ('Muscle Shoals Mobile Home Park LLC',       'muscle-shoals'),
+  ('Oakview MHC Community, LLC',               'oakview-mhc'),
+  ('Parkwood Mobile Home Park LLC',            'parkwood'),
+  ('Pecanland Mobile Home & RV Park',          'pecanland'),
+  ('Rainbow Terrace Mobile Home Park, LLC',    'rainbow-terrace'),
+  ('Remwood Mobile Home Park, LLC',            'remwood'),
+  ('Satsuma Heights Mobile Home Park, LLC',    'satsuma-heights'),
+  ('Shady Pines Community LLC',                'shady-pines'),
+  ('Sidlenie Mobile Home Park, LLC',           'sidlenie'),
+  ('Sonnier Mobile Home Park, LLC',            'sonnier'),
+  ('Steele Creek Mobile Home Park, LLC',       'steele-creek')
+on conflict (slug) do nothing;
