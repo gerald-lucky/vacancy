@@ -1,21 +1,8 @@
-import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
-import { ParkCard } from "@/components/ParkCard";
-import { VacancyTrendChart } from "@/components/VacancyTrendChart";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Upload } from "lucide-react";
 import type { Park, VacancySnapshot, ParkCardData } from "@/lib/types";
 import { DashboardClient } from "./DashboardClient";
 
 async function getData() {
-  // Use server-side direct fetch with service role to read data
   const supabaseServer = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -40,7 +27,6 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const { parks, snapshots } = await getData();
 
-  // For each park, find latest and previous snapshots
   const parkCardData: ParkCardData[] = parks.map((park) => {
     const parkSnaps = snapshots
       .filter((s) => s.park_id === park.id)
