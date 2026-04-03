@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { parseExcelBuffer, sheetsToText } from "@/lib/excel";
 import { parseVacancyReport } from "@/lib/claude";
 import { matchParkName } from "@/lib/utils";
 import type { UnitType, UnitStatus } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
+  const db = getSupabaseAdmin();
+
   try {
     const { reportId } = await request.json();
     if (!reportId) {
@@ -13,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Fetch the report record
-    const { data: report, error: reportErr } = await supabaseAdmin
+    const { data: report, error: reportErr } = await db
       .from("weekly_reports")
       .select("*")
       .eq("id", reportId)
@@ -24,12 +26,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Download file from Supabase Storage
-    const { data: fileData, error: downloadErr } = await supabaseAdmin.storage
+    const { data: fileData, error: downloadErr } = await db.storage
       .from("vacancy-reports")
       .download(report.file_path);
 
     if (downloadErr || !fileData) {
-      await markReportError(reportId, "Failed to download file from storage");
+      await db.from("weekly_reports").update({ error: "Failed to download file from storage" }).eq("id", reportId);
       return NextResponse.json({ error: "Failed to download file" }, { status: 500 });
     }
 
@@ -42,12 +44,10 @@ export async function POST(request: NextRequest) {
     const parseResult = await parseVacancyReport(excelText);
 
     // 5. Fetch all parks for matching
-    const { data: allParks } = await supabaseAdmin
-      .from("parks")
-      .select("id, name, slug");
+    const { data: allParks } = await db.from("parks").select("id, name, slug");
 
     if (!allParks) {
-      await markReportError(reportId, "Failed to fetch parks");
+      await db.from("weekly_reports").update({ error: "Failed to fetch parks" }).eq("id", reportId);
       return NextResponse.json({ error: "Failed to fetch parks" }, { status: 500 });
     }
 
@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Upsert each unit
       for (const claudeUnit of claudePark.units) {
         const unitData = {
           park_id: parkId,
@@ -71,12 +70,9 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         };
 
-        const { data: upsertedUnit, error: upsertErr } = await supabaseAdmin
+        const { data: upsertedUnit, error: upsertErr } = await db
           .from("units")
-          .upsert(unitData, {
-            onConflict: "park_id,lot_number",
-            ignoreDuplicates: false,
-          })
+          .upsert(unitData, { onConflict: "park_id,lot_number", ignoreDuplicates: false })
           .select("id, current_status")
           .single();
 
@@ -85,8 +81,8 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // 7. Fetch previous history to detect changes
-        const { data: prevHistory } = await supabaseAdmin
+        // 7. Detect status changes
+        const { data: prevHistory } = await db
           .from("unit_history")
           .select("status")
           .eq("unit_id", upsertedUnit.id)
@@ -97,10 +93,9 @@ export async function POST(request: NextRequest) {
 
         const previousStatus = prevHistory?.status ?? null;
         const currentStatus = claudeUnit.status as UnitStatus;
-        const changed =
-          previousStatus !== null && previousStatus !== currentStatus;
+        const changed = previousStatus !== null && previousStatus !== currentStatus;
 
-        await supabaseAdmin.from("unit_history").upsert(
+        await db.from("unit_history").upsert(
           {
             unit_id: upsertedUnit.id,
             report_id: reportId,
@@ -113,13 +108,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 8. Build vacancy snapshot for this park
+      // 8. Vacancy snapshot
       const totalUnits = claudePark.units.length;
-      const vacantUnits = claudePark.units.filter(
-        (u) => u.status === "vacant"
-      ).length;
+      const vacantUnits = claudePark.units.filter((u) => u.status === "vacant").length;
 
-      await supabaseAdmin.from("vacancy_snapshots").upsert(
+      await db.from("vacancy_snapshots").upsert(
         {
           park_id: parkId,
           report_id: reportId,
@@ -131,8 +124,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 9. Mark report as processed
-    await supabaseAdmin
+    // 9. Mark processed
+    await db
       .from("weekly_reports")
       .update({ processed: true, processed_at: new Date().toISOString(), error: null })
       .eq("id", reportId);
@@ -143,11 +136,4 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-async function markReportError(reportId: string, error: string) {
-  await supabaseAdmin
-    .from("weekly_reports")
-    .update({ error })
-    .eq("id", reportId);
 }
