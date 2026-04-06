@@ -91,13 +91,6 @@ export interface ParkCardData {
   delta: number | null; // positive = went up (bad), negative = went down (good)
 }
 
-// Unit status transition event (for move-in/move-out tracking)
-export interface MovementEvent {
-  week_date: string;
-  park_id: string;
-  changed_to: "vacant" | "occupied";
-}
-
 // Claude parsing output
 // The Excel file is a vacancy-only report — only vacant units are listed.
 // Total unit counts come from the park section header.

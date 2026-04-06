@@ -1,10 +1,10 @@
 "use client";
 
-import type { Park, MovementEvent } from "@/lib/types";
+import type { Park, VacancySnapshot } from "@/lib/types";
 
 interface MovementSummaryTableProps {
   parks: Park[];
-  movements: MovementEvent[];
+  snapshots: VacancySnapshot[];
   startWeek: string;
   endWeek: string;
   filterParkId: string;
@@ -12,45 +12,58 @@ interface MovementSummaryTableProps {
 
 interface ParkMovement {
   park: Park;
-  moveIns: number;   // vacant → occupied (someone moved in, vacancy filled)
-  moveOuts: number;  // occupied → vacant (someone moved out, new vacancy)
+  moveIns: number;   // vacancies filled (vacant count decreased week-over-week)
+  moveOuts: number;  // new vacancies (vacant count increased week-over-week)
 }
 
 export function MovementSummaryTable({
   parks,
-  movements,
+  snapshots,
   startWeek,
   endWeek,
   filterParkId,
 }: MovementSummaryTableProps) {
-  // Filter movements to the selected date range
-  const filtered = movements.filter(
-    (m) => m.week_date >= startWeek && m.week_date <= endWeek
-  );
-
   const parkMap = new Map(parks.map((p) => [p.id, p]));
 
-  // Aggregate move-ins and move-outs per park
-  const counts = new Map<string, { moveIns: number; moveOuts: number }>();
-  for (const m of filtered) {
-    if (!counts.has(m.park_id)) {
-      counts.set(m.park_id, { moveIns: 0, moveOuts: 0 });
+  // For each park, collect snapshots sorted by week within the range
+  // We need one week before startWeek as the "previous" baseline for the first comparison
+  const parkMoves = new Map<string, { moveIns: number; moveOuts: number }>();
+
+  for (const park of parks) {
+    // All snapshots for this park sorted ascending, including the week just before startWeek
+    const parkSnaps = snapshots
+      .filter((s) => s.park_id === park.id)
+      .sort((a, b) => a.week_date.localeCompare(b.week_date));
+
+    let totalMoveIns = 0;
+    let totalMoveOuts = 0;
+
+    for (let i = 1; i < parkSnaps.length; i++) {
+      const prev = parkSnaps[i - 1];
+      const curr = parkSnaps[i];
+
+      // Only count transitions where the current week is within the selected range
+      if (curr.week_date < startWeek || curr.week_date > endWeek) continue;
+
+      const diff = curr.vacant_units - prev.vacant_units;
+      if (diff > 0) {
+        totalMoveOuts += diff; // vacancies increased → people moved out
+      } else if (diff < 0) {
+        totalMoveIns += -diff; // vacancies decreased → people moved in
+      }
     }
-    const c = counts.get(m.park_id)!;
-    if (m.changed_to === "occupied") {
-      c.moveIns++;
-    } else {
-      c.moveOuts++;
+
+    if (totalMoveIns > 0 || totalMoveOuts > 0) {
+      parkMoves.set(park.id, { moveIns: totalMoveIns, moveOuts: totalMoveOuts });
     }
   }
 
-  // Build rows, optionally filtered by park
   const rows: ParkMovement[] = parks
     .filter((p) => filterParkId === "all" || p.id === filterParkId)
     .map((park) => ({
       park,
-      moveIns: counts.get(park.id)?.moveIns ?? 0,
-      moveOuts: counts.get(park.id)?.moveOuts ?? 0,
+      moveIns: parkMoves.get(park.id)?.moveIns ?? 0,
+      moveOuts: parkMoves.get(park.id)?.moveOuts ?? 0,
     }))
     .filter((r) => r.moveIns > 0 || r.moveOuts > 0)
     .sort((a, b) => b.moveOuts - a.moveOuts || b.moveIns - a.moveIns);
@@ -59,6 +72,9 @@ export function MovementSummaryTable({
     return (
       <div className="text-sm text-gray-400 text-center py-6">
         No move-ins or move-outs recorded in the selected date range.
+        {snapshots.length < 2 && (
+          <span className="block mt-1">Upload at least two weekly reports to see changes.</span>
+        )}
       </div>
     );
   }
@@ -72,8 +88,14 @@ export function MovementSummaryTable({
         <thead>
           <tr className="border-b border-gray-100">
             <th className="text-left py-2 pr-6 font-medium text-gray-500">Park</th>
-            <th className="text-right py-2 px-4 font-medium text-green-700">Move-Ins</th>
-            <th className="text-right py-2 pl-4 font-medium text-red-600">Move-Outs</th>
+            <th className="text-right py-2 px-4 font-medium text-green-700">
+              Move-Ins
+              <span className="block text-xs font-normal text-gray-400">vacancies filled</span>
+            </th>
+            <th className="text-right py-2 pl-4 font-medium text-red-600">
+              Move-Outs
+              <span className="block text-xs font-normal text-gray-400">new vacancies</span>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
@@ -82,14 +104,14 @@ export function MovementSummaryTable({
               <td className="py-2 pr-6 text-gray-800">{park.name}</td>
               <td className="py-2 px-4 text-right">
                 {moveIns > 0 ? (
-                  <span className="font-medium text-green-700">+{moveIns}</span>
+                  <span className="font-medium text-green-700">{moveIns}</span>
                 ) : (
                   <span className="text-gray-300">—</span>
                 )}
               </td>
               <td className="py-2 pl-4 text-right">
                 {moveOuts > 0 ? (
-                  <span className="font-medium text-red-600">+{moveOuts}</span>
+                  <span className="font-medium text-red-600">{moveOuts}</span>
                 ) : (
                   <span className="text-gray-300">—</span>
                 )}
@@ -100,8 +122,8 @@ export function MovementSummaryTable({
         <tfoot>
           <tr className="border-t border-gray-200">
             <td className="py-2 pr-6 font-semibold text-gray-700">Total</td>
-            <td className="py-2 px-4 text-right font-semibold text-green-700">+{totalMoveIns}</td>
-            <td className="py-2 pl-4 text-right font-semibold text-red-600">+{totalMoveOuts}</td>
+            <td className="py-2 px-4 text-right font-semibold text-green-700">{totalMoveIns}</td>
+            <td className="py-2 pl-4 text-right font-semibold text-red-600">{totalMoveOuts}</td>
           </tr>
         </tfoot>
       </table>

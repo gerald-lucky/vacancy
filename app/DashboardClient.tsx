@@ -14,13 +14,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { Park, VacancySnapshot, ParkCardData, MovementEvent } from "@/lib/types";
+import type { Park, VacancySnapshot, ParkCardData } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 interface DashboardClientProps {
   parks: Park[];
   snapshots: VacancySnapshot[];
-  movements: MovementEvent[];
   parkCardData: ParkCardData[];
   totalUnits: number;
   totalVacant: number;
@@ -30,7 +29,6 @@ interface DashboardClientProps {
 export function DashboardClient({
   parks,
   snapshots,
-  movements,
   parkCardData,
   totalUnits,
   totalVacant,
@@ -166,7 +164,7 @@ export function DashboardClient({
           </div>
 
           {/* Move-ins / Move-outs */}
-          {movements.length > 0 && (
+          {snapshots.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="mb-4">
                 <h2 className="text-base font-semibold text-gray-900">Move-Ins & Move-Outs</h2>
@@ -176,7 +174,7 @@ export function DashboardClient({
               </div>
               <MovementSummaryTable
                 parks={parks}
-                movements={movements}
+                snapshots={snapshots}
                 startWeek={startWeek}
                 endWeek={endWeek}
                 filterParkId={filterPark}
