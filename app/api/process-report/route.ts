@@ -46,11 +46,11 @@ export async function POST(request: NextRequest) {
     // 4. Call Claude — returns vacancy-only data with total_units from section headers
     const parseResult = await parseVacancyReport(excelText);
 
-    // 5. Fetch all parks for matching
-    const { data: allParks } = await db.from("parks").select("id, name, slug, total_lots");
+    // 5. Fetch all parks for matching (select * so missing columns don't cause errors)
+    const { data: allParks, error: parksErr } = await db.from("parks").select("*");
 
-    if (!allParks) {
-      await db.from("weekly_reports").update({ error: "Failed to fetch parks" }).eq("id", reportId);
+    if (parksErr || !allParks) {
+      await db.from("weekly_reports").update({ error: `Failed to fetch parks: ${parksErr?.message}` }).eq("id", reportId);
       return NextResponse.json({ error: "Failed to fetch parks" }, { status: 500 });
     }
 
