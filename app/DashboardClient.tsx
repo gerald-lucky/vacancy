@@ -14,12 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { Park, VacancySnapshot, ParkCardData } from "@/lib/types";
+import type { Park, VacancySnapshot, ParkCardData, MovementEvent } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 interface DashboardClientProps {
   parks: Park[];
   snapshots: VacancySnapshot[];
+  movements: MovementEvent[];
   parkCardData: ParkCardData[];
   totalUnits: number;
   totalVacant: number;
@@ -29,6 +30,7 @@ interface DashboardClientProps {
 export function DashboardClient({
   parks,
   snapshots,
+  movements,
   parkCardData,
   totalUnits,
   totalVacant,
@@ -61,7 +63,7 @@ export function DashboardClient({
     });
   }, [snapshots, filterPark, startWeek, endWeek]);
 
-  const hasData = parkCardData.some((d) => d.total_units > 0);
+  const hasData = snapshots.length > 0;
 
   return (
     <div className="space-y-8">
@@ -169,12 +171,12 @@ export function DashboardClient({
               <div className="mb-4">
                 <h2 className="text-base font-semibold text-gray-900">Move-Ins & Move-Outs</h2>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Units filled (move-in) or vacated (move-out) in the selected date range
+                  Per lot: move-out = lot newly appeared as vacant · move-in = lot disappeared from vacant list
                 </p>
               </div>
               <MovementSummaryTable
                 parks={parks}
-                snapshots={snapshots}
+                movements={movements}
                 startWeek={startWeek}
                 endWeek={endWeek}
                 filterParkId={filterPark}

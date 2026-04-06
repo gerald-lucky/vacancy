@@ -92,6 +92,13 @@ export interface ParkCardData {
   delta: number | null; // positive = went up (bad), negative = went down (good)
 }
 
+// Per-lot movement event from unit_history (changed_to IS NOT NULL)
+export interface MovementEvent {
+  week_date: string;
+  park_id: string;
+  changed_to: "vacant" | "occupied";
+}
+
 // Claude parsing output
 // The Excel file is a vacancy-only report — only vacant units are listed.
 // Total unit counts come from the park section header.

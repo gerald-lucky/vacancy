@@ -78,11 +78,17 @@ export async function POST(request: NextRequest) {
         (existingUnits ?? []).map((u) => [u.lot_number, u])
       );
 
+      // If existingMap has entries, this park has prior report data.
+      // Any lot appearing as vacant for the first time (not in existingMap) is a move-out
+      // (it was occupied last week and just became vacant).
+      // If existingMap is empty, this is the first-ever report — no transitions to record.
+      const isFirstReport = existingMap.size === 0;
+
       const newVacantLotNumbers = new Set(
         claudePark.vacant_units.map((u) => u.lot_number.trim())
       );
 
-      // Units previously tracked as vacant but absent from this report → now occupied
+      // Units previously tracked as vacant but absent from this report → move-in (vacancy filled)
       const nowOccupied = (existingUnits ?? []).filter(
         (u) => u.current_status === "vacant" && !newVacantLotNumbers.has(u.lot_number)
       );
@@ -137,15 +143,22 @@ export async function POST(request: NextRequest) {
 
         const existing = existingMap.get(lot);
         const prevStatus = existing?.current_status ?? null;
-        const changed = prevStatus !== null && prevStatus !== "vacant";
+
+        // Move-out = lot is vacant this week AND was occupied before:
+        //   - prevStatus === "occupied": was explicitly tracked as occupied
+        //   - prevStatus === null && !isFirstReport: lot never seen before,
+        //     meaning it was occupied in all prior weeks → just became vacant
+        const isMoveOut =
+          (prevStatus !== null && prevStatus !== "vacant") ||
+          (prevStatus === null && !isFirstReport);
 
         historyRows.push({
           unit_id: unitId,
           report_id: reportId,
           week_date: weekDate,
           status: "vacant",
-          changed_from: changed ? (prevStatus as "occupied") : null,
-          changed_to: changed ? "vacant" : null,
+          changed_from: isMoveOut ? "occupied" : null,
+          changed_to: isMoveOut ? "vacant" : null,
         });
       }
 
