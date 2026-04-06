@@ -13,6 +13,7 @@ export interface Park {
   id: string;
   name: string;
   slug: string;
+  total_lots: number;
   created_at: string;
 }
 

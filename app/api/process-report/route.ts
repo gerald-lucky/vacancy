@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const parseResult = await parseVacancyReport(excelText);
 
     // 5. Fetch all parks for matching
-    const { data: allParks } = await db.from("parks").select("id, name, slug");
+    const { data: allParks } = await db.from("parks").select("id, name, slug, total_lots");
 
     if (!allParks) {
       await db.from("weekly_reports").update({ error: "Failed to fetch parks" }).eq("id", reportId);
@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
     const weekDate = report.week_date;
     const now = new Date().toISOString();
 
+    const parkLookup = new Map(allParks.map((p) => [p.id, p]));
+
     // 6. Process each park with batched DB operations (O(5) per park instead of O(N))
     for (const claudePark of parseResult.parks) {
       const parkId = matchParkName(claudePark.park_name, allParks);
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
         console.warn(`Could not match park: ${claudePark.park_name}`);
         continue;
       }
+      const park = parkLookup.get(parkId)!;
 
       // Step A: Fetch all currently-known units for this park in one query
       const { data: existingUnits } = await db
@@ -169,7 +172,7 @@ export async function POST(request: NextRequest) {
           park_id: parkId,
           report_id: reportId,
           week_date: weekDate,
-          total_units: claudePark.total_units,
+          total_units: park.total_lots,
           vacant_units: claudePark.vacant_count,
         },
         { onConflict: "park_id,week_date" }

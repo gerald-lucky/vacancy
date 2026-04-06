@@ -35,13 +35,12 @@ export default async function DashboardPage() {
     const latest = parkSnaps[0] ?? null;
     const previous = parkSnaps[1] ?? null;
 
-    const total = latest?.total_units ?? 0;
+    const total = park.total_lots;
     const vacant = latest?.vacant_units ?? 0;
     const pct = total > 0 ? (vacant / total) * 100 : 0;
 
     const prevVacant = previous?.vacant_units ?? null;
-    const prevTotal = previous?.total_units ?? null;
-    const prevPct = prevTotal && prevTotal > 0 ? (prevVacant! / prevTotal) * 100 : null;
+    const prevPct = prevVacant !== null && total > 0 ? (prevVacant / total) * 100 : null;
 
     const delta = prevVacant !== null ? vacant - prevVacant : null;
 
